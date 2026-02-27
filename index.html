@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="ckb" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>وەستا کارمەند – سیستەمی فاتورە</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#1a56db" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="وەستا کارمەند" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+
+  <!-- Bootstrap RTL 5 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" />
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" />
+  <!-- Custom styles -->
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<!-- ========== PWA INSTALL BANNER ========== -->
+<div id="pwaInstallBanner" class="alert alert-primary alert-dismissible d-none no-print m-0 rounded-0 d-flex align-items-center justify-content-between" role="alert" style="border-radius:0!important">
+  <span><i class="bi bi-phone"></i> <strong>ئەپەکە</strong> دەتوانیت ئەم سیستەمە وەک ئەپی مۆبایل داگریتە</span>
+  <div class="d-flex gap-2">
+    <button class="btn btn-primary btn-sm" id="btnInstallPWA"><i class="bi bi-download"></i> داگرتنی ئەپ</button>
+    <button class="btn btn-outline-secondary btn-sm" id="btnDismissInstall">داخەڕڃاندن</button>
+  </div>
+</div>
+
+<!-- ========== NAVBAR ========== -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary no-print">
+  <div class="container-fluid">
+    <span class="navbar-brand fw-bold fs-5">⚡ وەستا کارمەند</span>
+    <div class="d-flex gap-2 flex-wrap">
+      <button class="btn btn-outline-light btn-sm" id="btnNewInvoice"><i class="bi bi-plus-circle"></i> فاتورەی نوێ</button>
+      <button class="btn btn-outline-warning btn-sm" id="btnCatalogue"><i class="bi bi-list-ul"></i> بابەتەکان</button>
+      <button class="btn btn-outline-light btn-sm" id="btnSavedList"><i class="bi bi-archive"></i> فاتورە خەزنکراوەکان</button>
+      <button class="btn btn-outline-success btn-sm" id="btnExport"><i class="bi bi-download"></i> هەناردن (Export)</button>
+      <button class="btn btn-outline-info btn-sm" id="btnImport"><i class="bi bi-upload"></i> بارکردن (Import)</button>
+      <input type="file" id="importFileInput" accept=".json" class="d-none" />
+    </div>
+  </div>
+</nav>
+
+<!-- ========== MAIN CONTAINER ========== -->
+<div class="container-fluid py-3 no-print">
+
+  <!-- Alert area -->
+  <div id="alertArea"></div>
+
+  <!-- Form Card -->
+  <div class="card shadow-sm mb-4" id="invoiceFormCard">
+    <div class="card-header bg-warning-subtle d-flex justify-content-between align-items-center">
+      <span class="fw-bold"><i class="bi bi-file-earmark-text"></i> دروستکردنی فاتورە</span>
+      <span class="text-muted small" id="invoiceIdLabel"></span>
+    </div>
+    <div class="card-body">
+
+      <!-- Customer Info -->
+      <div class="row g-3 mb-3">
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">خاوەنی خانوو</label>
+          <input type="text" class="form-control" id="customerName" placeholder="ناوی خاوەن" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">ناونیشان</label>
+          <input type="text" class="form-control" id="customerAddress" placeholder="ناونیشان" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">مۆبایل</label>
+          <input type="text" class="form-control" id="customerPhone" placeholder="07XXXXXXXXX" />
+        </div>
+      </div>
+
+      <!-- Rate + Date -->
+      <div class="row g-3 mb-4">
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">نرخی نوقتە (دینار)</label>
+          <input type="number" class="form-control" id="pointRate" value="1000" min="0" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">بەروار</label>
+          <input type="date" class="form-control" id="invoiceDate" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">تێبینی</label>
+          <input type="text" class="form-control" id="invoiceNote" placeholder="تێبینی زیادە..." />
+        </div>
+      </div>
+
+      <!-- Items Table -->
+      <div class="table-responsive">
+        <table class="table table-bordered table-hover align-middle text-center invoice-table" id="itemsTable">
+          <thead class="table-orange">
+            <tr>
+              <th style="width:30%">بابەت</th>
+              <th style="width:8%">ژمارە</th>
+              <th style="width:10%">نرخ بە نوقتە</th>
+              <th style="width:10%">کۆی نوقتە</th>
+              <th style="width:13%">نرخی نوقتە (د)</th>
+              <th style="width:13%">بری پارە (د)</th>
+              <th style="width:10%" class="no-print">کردار</th>
+            </tr>
+          </thead>
+          <tbody id="itemsBody">
+            <!-- rows injected by JS -->
+          </tbody>
+          <tfoot>
+            <tr class="table-light fw-bold">
+              <td colspan="3" class="text-end">کۆی گشتی</td>
+              <td id="grandTotalPtsCell" class="text-center">0</td>
+              <td></td>
+              <td id="grandTotalCell">0</td>
+              <td class="no-print"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <!-- Add Item Row -->
+      <div class="card bg-light mb-3 no-print">
+        <div class="card-body">
+          <h6 class="card-title"><i class="bi bi-plus-square"></i> زیادکردنی مادە</h6>
+          <div class="row g-2 align-items-end">
+            <div class="col-md-4">
+              <label class="form-label small">بابەت</label>
+              <div class="input-group">
+                <select class="form-select" id="itemSelect">
+                  <option value="">-- هەڵبژاردن --</option>
+                </select>
+                <button class="btn btn-outline-secondary btn-sm" id="btnCustomItem" title="مادەی تایبەت">
+                  <i class="bi bi-pencil"></i>
+                </button>
+              </div>
+              <input type="text" class="form-control mt-1 d-none" id="customItemName" placeholder="ناوی مادە بنووسە..." />
+            </div>
+            <div class="col-md-2">
+              <label class="form-label small">ژمارە</label>
+              <input type="number" class="form-control" id="itemQty" value="1" min="0.5" step="0.5" />
+            </div>
+            <div class="col-md-2">
+              <label class="form-label small">نرخ بە نوقتە</label>
+              <div class="input-group">
+                <button class="btn btn-warning fw-bold px-2" id="btnOperator" title="جۆری ژماردن دتۆانی بگۆڕێت">×</button>
+                <input type="number" class="form-control" id="itemPoints" value="0" min="0" />
+              </div>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label small">نرخ بە دینار <small class="text-muted">(ئارەزوومەندانە)</small></label>
+              <input type="number" class="form-control bg-warning-subtle" id="itemDirectPrice" value="0" min="0" title="ئۆتۆماتیکی دەژمێرێتەوە: ژمارە × نرخ بە نوقتە × نرخی نوقتە" />
+            </div>
+            <div class="col-md-2">
+              <button class="btn btn-primary w-100" id="btnAddItem">
+                <i class="bi bi-plus-lg"></i> زیادکە
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payment Summary -->
+      <div class="row g-2 justify-content-end align-items-center mt-3 mb-2">
+        <div class="col-sm-auto">
+          <div class="input-group">
+            <span class="input-group-text fw-semibold bg-success-subtle">بری پارەی وەگیراو</span>
+            <input type="number" class="form-control" id="paidAmount" value="0" min="0" step="500" />
+            <span class="input-group-text">د</span>
+          </div>
+        </div>
+        <div class="col-sm-auto">
+          <div class="input-group">
+            <span class="input-group-text fw-semibold bg-danger text-white">بری پارەی ماوە</span>
+            <input type="number" class="form-control fw-bold" id="remainingAmount" value="0" readonly />
+            <span class="input-group-text">د</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="d-flex flex-wrap gap-2 justify-content-end">
+        <button class="btn btn-secondary" id="btnClear"><i class="bi bi-trash"></i> سڕینەوە</button>
+        <button class="btn btn-success" id="btnSave"><i class="bi bi-floppy"></i> خەزنکردن</button>
+        <button class="btn btn-info text-white" id="btnPreview"><i class="bi bi-eye"></i> پێشبینیکردن</button>
+        <button class="btn btn-danger" id="btnPrint"><i class="bi bi-printer"></i> چاپکردن</button>
+      </div>
+
+    </div>
+  </div><!-- /card -->
+
+  <!-- Saved Invoices Panel -->
+  <div class="card shadow-sm d-none" id="savedPanel">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+      <span><i class="bi bi-archive"></i> فاتورە خەزنکراوەکان</span>
+      <button class="btn btn-sm btn-outline-light" id="btnCloseSaved">✕</button>
+    </div>
+    <div class="card-body">
+      <!-- Search -->
+      <div class="input-group mb-3">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input type="text" class="form-control" id="savedSearch" placeholder="گەڕان بە ناوی خاوەنی خانوو..." />
+        <button class="btn btn-outline-secondary" id="btnClearSearch" title="پاککردنەوەی گەڕان">✕</button>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-bordered table-hover text-center small">
+          <thead class="table-secondary">
+            <tr>
+              <th>#</th>
+              <th>ناو</th>
+              <th>بەروار</th>
+              <th>کۆی گشتی</th>
+              <th>کردار</th>
+            </tr>
+          </thead>
+          <tbody id="savedListBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /container-fluid -->
+
+
+<!-- ========== PRINTABLE INVOICE ========== -->
+<div id="printInvoice" class="print-only">
+  <div class="inv-header">
+    <div class="inv-logo">
+      <div class="logo-icon">⚡</div>
+    </div>
+    <div class="inv-title">
+      <h2>وەستا کارمەند</h2>
+      <p>ئامادەبون بۆ بەستانی کارەبا و کامێرای چاودێری و</p>
+      <p>کامێرای دەرگا بۆ مالان و بینا و شوێنە بازرگانیەکان</p>
+      <p class="slogan">بەنویێترین شێوازی سەردەمیانە</p>
+    </div>
+    <div class="inv-phone">
+      <strong>مۆبایل:</strong> 07504491289
+    </div>
+  </div>
+
+  <div class="inv-meta">
+    <div>
+      <span class="inv-label">خاوەنی خانوو :</span>
+      <span class="inv-value" id="pCustomerName"></span>
+    </div>
+    <div>
+      <span class="inv-label">ناونیشان :</span>
+      <span class="inv-value" id="pCustomerAddress"></span>
+    </div>
+    <div>
+      <span class="inv-label">مۆبایل :</span>
+      <span class="inv-value" id="pCustomerPhone"></span>
+    </div>
+    <div>
+      <span class="inv-label">نرخی نوقتە :</span>
+      <span class="inv-value" id="pPointRate"></span>
+      <span class="inv-label"> دینار</span>
+    </div>
+    <div>
+      <span class="inv-label">بەروار :</span>
+      <span class="inv-value" id="pDate"></span>
+    </div>
+  </div>
+
+  <table class="inv-table">
+    <thead>
+      <tr>
+        <th>بابەت</th>
+        <th>ژمارە</th>
+        <th>نرخی بە نوقتە</th>
+        <th>ژمارەی نوقتە</th>
+        <th>نرخی نوقتە (د)</th>
+        <th>بری پارە</th>
+      </tr>
+    </thead>
+    <tbody id="pItemsBody"></tbody>
+    <tfoot>
+      <tr>
+        <td colspan="3" style="text-align:right; font-weight:bold;">کۆی گشتی</td>
+        <td style="font-weight:bold; text-align:center;" id="pGrandTotalPts"></td>
+        <td></td>
+        <td style="font-weight:bold;" id="pGrandTotal"></td>
+      </tr>
+      <tr id="pPaidRow">
+        <td colspan="5" style="text-align:right;">بری پارەی وەگیراو</td>
+        <td id="pPaidAmount"></td>
+      </tr>
+      <tr id="pRemainingRow" style="font-weight:bold;">
+        <td colspan="5" style="text-align:right;">بری پارەی ماوە</td>
+        <td id="pRemainingAmount"></td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <div class="inv-footer">
+    <p id="pNote"></p>
+    <div class="inv-sign">
+      <span>واژووی کڕیار</span>
+      <span>واژووی فرۆشیار</span>
+    </div>
+  </div>
+</div>
+
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- ========== CATALOGUE MODAL ========== -->
+<div class="modal fade" id="catalogueModal" tabindex="-1" aria-labelledby="catalogueModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#c87533;color:#fff">
+        <h5 class="modal-title" id="catalogueModalLabel"><i class="bi bi-list-ul"></i> بەڕێوبردنی بابەتەکان</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+
+        <!-- Add / Edit form -->
+        <div class="card mb-3 bg-light border-warning">
+          <div class="card-body">
+            <h6 class="card-title" id="catFormTitle"><i class="bi bi-plus-square text-success"></i> زیادکردنی بابەتی نوێ</h6>
+            <div class="row g-2 align-items-end">
+              <div class="col-md-4">
+                <label class="form-label small">ناوی بابەت</label>
+                <input type="text" class="form-control" id="catName" placeholder="ناو..." />
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small">نرخ بە نوقتە</label>
+                <div class="input-group">
+                  <button class="btn btn-warning fw-bold px-2" id="catOperatorBtn">×</button>
+                  <input type="number" class="form-control" id="catPoints" value="0" min="0" step="0.5" />
+                </div>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small">نرخ بە دینار (پێشکەوتوو)</label>
+                <input type="number" class="form-control" id="catDirectPrice" value="0" min="0" />
+              </div>
+              <div class="col-md-3">
+                <input type="hidden" id="catEditIndex" value="-1" />
+                <button class="btn btn-success w-100" id="btnSaveCatItem">
+                  <i class="bi bi-floppy"></i> <span id="catSaveBtnText">زیادکە</span>
+                </button>
+                <button class="btn btn-secondary w-100 mt-1 d-none" id="btnCancelCatEdit">
+                  <i class="bi bi-x"></i> هەڵوەشاندنەوە
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Catalogue table -->
+        <div class="table-responsive">
+          <table class="table table-bordered table-hover text-center small align-middle">
+            <thead class="table-orange">
+              <tr>
+                <th style="width:5%">#</th>
+                <th style="width:35%">ناوی بابەت</th>
+                <th style="width:15%">نرخ بە نوقتە</th>
+                <th style="width:18%">نرخ بە دینار</th>
+                <th style="width:17%">کردار</th>
+              </tr>
+            </thead>
+            <tbody id="catalogueTableBody"></tbody>
+          </table>
+        </div>
+
+        <div class="d-flex justify-content-end">
+          <button class="btn btn-outline-danger btn-sm" id="btnResetCatalogue">
+            <i class="bi bi-arrow-counterclockwise"></i> گەڕاندنەوە بۆ بنەڕەت (߀߆ بابەت)
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- App -->
+<script src="js/app.js"></script>
+
+<!-- ========== SERVICE WORKER + PWA INSTALL ========== -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+  }
+  let deferredPrompt;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    document.getElementById('pwaInstallBanner').classList.remove('d-none');
+  });
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('btnInstallPWA').addEventListener('click', async () => {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        document.getElementById('pwaInstallBanner').classList.add('d-none');
+      }
+      deferredPrompt = null;
+    });
+    document.getElementById('btnDismissInstall').addEventListener('click', () => {
+      document.getElementById('pwaInstallBanner').classList.add('d-none');
+    });
+  });
+  window.addEventListener('appinstalled', () => {
+    document.getElementById('pwaInstallBanner').classList.add('d-none');
+    deferredPrompt = null;
+  });
+</script>
+
+</body>
+</html>

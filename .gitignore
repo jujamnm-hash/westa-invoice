@@ -1,0 +1,7 @@
+node_modules/
+*.js.map
+ts/
+tsconfig.json
+package.json
+package-lock.json
+icons/make-icons.html
