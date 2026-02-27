@@ -457,6 +457,203 @@ function renderPrintPreview() {
         pRemRow.style.display = "none";
     }
 }
+// =============================================
+// ---- EXPENSE TRACKER ----
+// =============================================
+const EXP_KEY = "wk_expenses";
+const EXP_CAT_COLORS = {
+    "مەواد":       "#e74c3c",
+    "کرێکاران":    "#8e44ad",
+    "ئامێر":       "#2980b9",
+    "گواستنەوە":   "#27ae60",
+    "کرێ":         "#d35400",
+    "خواردن":      "#16a085",
+    "تر":          "#7f8c8d"
+};
+
+function loadExpenses() {
+    return JSON.parse(localStorage.getItem(EXP_KEY) || "[]");
+}
+function saveExpenses(list) {
+    localStorage.setItem(EXP_KEY, JSON.stringify(list));
+}
+function generateExpId() {
+    return "EXP-" + Date.now() + Math.floor(Math.random() * 100);
+}
+
+function getFilteredExpenses() {
+    const list = loadExpenses();
+    const from  = document.getElementById("expFilterFrom").value;
+    const to    = document.getElementById("expFilterTo").value;
+    const cat   = document.getElementById("expFilterCat").value;
+    const q     = document.getElementById("expFilterSearch").value.trim().toLowerCase();
+    return list.filter(e => {
+        if (from && e.date < from) return false;
+        if (to   && e.date > to)   return false;
+        if (cat  && e.category !== cat) return false;
+        if (q    && !e.desc.toLowerCase().includes(q)) return false;
+        return true;
+    });
+}
+
+function renderExpenseTable() {
+    const filtered = getFilteredExpenses();
+    const tbody = document.getElementById("expTableBody");
+    tbody.innerHTML = "";
+    let grand = 0;
+    if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted">هیچ خەرجییەک نییە</td></tr>`;
+    } else {
+        filtered.slice().sort((a,b)=> b.date.localeCompare(a.date)).forEach((e, i) => {
+            grand += e.amount;
+            const color = EXP_CAT_COLORS[e.category] || "#555";
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td>${i+1}</td>
+              <td>${e.date}</td>
+              <td><span class="badge" style="background:${color}">${e.category}</span></td>
+              <td class="text-start">${e.desc || "–"}</td>
+              <td class="fw-bold">${formatNum(e.amount)} د</td>
+              <td>
+                <button class="btn btn-xs btn-sm btn-outline-warning" onclick="editExp('${e.id}')"><i class="bi bi-pencil"></i></button>
+                <button class="btn btn-xs btn-sm btn-outline-danger ms-1" onclick="deleteExp('${e.id}')"><i class="bi bi-trash"></i></button>
+              </td>`;
+            tbody.appendChild(tr);
+        });
+    }
+    document.getElementById("expGrandTotal").textContent = formatNum(grand) + " د";
+    renderExpenseSummary(filtered);
+}
+
+function renderExpenseSummary(filtered) {
+    const cards = document.getElementById("expSummaryCards");
+    const totals = {};
+    let grand = 0;
+    filtered.forEach(e => {
+        totals[e.category] = (totals[e.category] || 0) + e.amount;
+        grand += e.amount;
+    });
+    cards.innerHTML = "";
+    // Grand total card
+    const gCard = document.createElement("div");
+    gCard.className = "col-6 col-md-3";
+    gCard.innerHTML = `<div class="card text-white h-100" style="background:#c0392b">
+      <div class="card-body py-2 text-center">
+        <div class="small">کۆی گشتی</div>
+        <div class="fw-bold fs-5">${formatNum(grand)} د</div>
+        <div class="small">${filtered.length} خەرجی</div>
+      </div></div>`;
+    cards.appendChild(gCard);
+    // Per-category cards
+    Object.entries(totals).sort((a,b)=>b[1]-a[1]).forEach(([cat, amt]) => {
+        const color = EXP_CAT_COLORS[cat] || "#555";
+        const div = document.createElement("div");
+        div.className = "col-6 col-md-2";
+        div.innerHTML = `<div class="card text-white h-100" style="background:${color}">
+          <div class="card-body py-2 text-center">
+            <div class="small">${cat}</div>
+            <div class="fw-bold">${formatNum(amt)} د</div>
+          </div></div>`;
+        cards.appendChild(div);
+    });
+}
+
+function saveExpenseItem() {
+    const date   = document.getElementById("expDate").value;
+    const cat    = document.getElementById("expCategory").value;
+    const desc   = document.getElementById("expDesc").value.trim();
+    const amount = parseFloat(document.getElementById("expAmount").value) || 0;
+    if (!date)   { showAlert("بەروار هەڵبژێرە!", "warning"); return; }
+    if (amount <= 0) { showAlert("بڕی پارە بنووسە!", "warning"); return; }
+    const list = loadExpenses();
+    const editId = document.getElementById("expEditId").value;
+    const entry = { id: editId || generateExpId(), date, category: cat, desc, amount };
+    if (editId) {
+        const idx = list.findIndex(e => e.id === editId);
+        if (idx >= 0) list[idx] = entry;
+    } else {
+        list.push(entry);
+    }
+    saveExpenses(list);
+    cancelExpEdit();
+    renderExpenseTable();
+    showAlert(editId ? "خەرجی نوێکرایەوە ✓" : "خەرجی زیادکرا ✓", "success");
+}
+
+function cancelExpEdit() {
+    document.getElementById("expDate").value = todayStr();
+    document.getElementById("expCategory").value = "مەواد";
+    document.getElementById("expDesc").value = "";
+    document.getElementById("expAmount").value = "";
+    document.getElementById("expEditId").value = "";
+    document.getElementById("expSaveBtnText").textContent = "زیادکە";
+    document.getElementById("expFormTitle").innerHTML = '<i class="bi bi-plus-square text-danger"></i> زیادکردنی خەرجیی نوێ';
+    document.getElementById("btnCancelExp").classList.add("d-none");
+}
+
+window.editExp = (id) => {
+    const e = loadExpenses().find(x => x.id === id);
+    if (!e) return;
+    document.getElementById("expDate").value = e.date;
+    document.getElementById("expCategory").value = e.category;
+    document.getElementById("expDesc").value = e.desc;
+    document.getElementById("expAmount").value = String(e.amount);
+    document.getElementById("expEditId").value = e.id;
+    document.getElementById("expSaveBtnText").textContent = "نوێکردنەوە";
+    document.getElementById("expFormTitle").innerHTML = '<i class="bi bi-pencil-square text-warning"></i> دەستکاری خەرجی';
+    document.getElementById("btnCancelExp").classList.remove("d-none");
+    document.getElementById("expDesc").focus();
+};
+
+window.deleteExp = (id) => {
+    if (!confirm("دڵنیایت لە سڕینەوەی ئەم خەرجییە؟")) return;
+    const list = loadExpenses().filter(e => e.id !== id);
+    saveExpenses(list);
+    renderExpenseTable();
+    showAlert("خەرجی سڕایەوە", "danger");
+};
+
+function printExpenses() {
+    const filtered = getFilteredExpenses().slice().sort((a,b)=>b.date.localeCompare(a.date));
+    // fill print section
+    document.getElementById("pExpReportDate").textContent = new Date().toLocaleDateString("en-GB");
+    const from = document.getElementById("expFilterFrom").value;
+    const to   = document.getElementById("expFilterTo").value;
+    const cat  = document.getElementById("expFilterCat").value;
+    const parts = [];
+    if (from || to) parts.push(`${from || "…"} → ${to || "…"}`);
+    if (cat) parts.push(cat);
+    document.getElementById("pExpFilterLabel").textContent = parts.length ? parts.join(" | ") : "هەموو";
+    // category summary
+    const totals = {};
+    let grand = 0;
+    filtered.forEach(e => {
+        totals[e.category] = (totals[e.category] || 0) + e.amount;
+        grand += e.amount;
+    });
+    const sumDiv = document.getElementById("pExpCatSummary");
+    sumDiv.innerHTML = `<table style="width:100%;border-collapse:collapse;margin-bottom:8px">
+      <tr style="background:#c0392b;color:#fff">
+        ${Object.entries(totals).map(([c,a])=>`<td style="padding:4px 8px;text-align:center"><div style="font-size:11px">${c}</div><div style="font-weight:bold">${formatNum(a)} د</div></td>`).join("")}
+        <td style="padding:4px 8px;text-align:center;background:#922b21"><div style="font-size:11px">کۆی گشتی</div><div style="font-weight:bold">${formatNum(grand)} د</div></td>
+      </tr></table>`;
+    // rows
+    const tbody = document.getElementById("pExpBody");
+    tbody.innerHTML = "";
+    filtered.forEach((e, i) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${i+1}</td><td>${e.date}</td><td>${e.category}</td><td style="text-align:right">${e.desc||"–"}</td><td>${formatNum(e.amount)} د</td>`;
+        tbody.appendChild(tr);
+    });
+    document.getElementById("pExpTotal").textContent = formatNum(grand) + " د";
+    // inject a temporary @media print style: show expenses, hide invoice
+    const printStyle = document.createElement("style");
+    printStyle.textContent = "@media print { #printInvoice { display:none!important; } #printExpenses { display:block!important; } }";
+    document.head.appendChild(printStyle);
+    window.print();
+    window.addEventListener("afterprint", () => printStyle.remove(), { once: true });
+}
+
 // ---- Clear form ----
 function clearForm() {
     if (items.length > 0 && !confirm("دڵنیایت لە سڕینەوەی فاتورەکە؟"))
@@ -572,11 +769,32 @@ document.addEventListener("DOMContentLoaded", () => {
         showAlert("بابەتەکان بۚ بنەڕەتیانیان گەڕیاندرانەوە", "info");
     });
     document.getElementById("catName").addEventListener("keydown", e => { if (e.key === "Enter") saveCatItem(); });
+    // Expenses modal
+    document.getElementById("btnExpenses").addEventListener("click", () => {
+        cancelExpEdit();
+        renderExpenseTable();
+        new bootstrap.Modal(document.getElementById("expensesModal")).show();
+    });
+    document.getElementById("btnSaveExp").addEventListener("click", saveExpenseItem);
+    document.getElementById("btnCancelExp").addEventListener("click", cancelExpEdit);
+    document.getElementById("expAmount").addEventListener("keydown", e => { if (e.key === "Enter") saveExpenseItem(); });
+    ["expFilterFrom","expFilterTo","expFilterCat","expFilterSearch"].forEach(id => {
+        document.getElementById(id).addEventListener("input", renderExpenseTable);
+    });
+    document.getElementById("btnExpFilterClear").addEventListener("click", () => {
+        document.getElementById("expFilterFrom").value = "";
+        document.getElementById("expFilterTo").value = "";
+        document.getElementById("expFilterCat").value = "";
+        document.getElementById("expFilterSearch").value = "";
+        renderExpenseTable();
+    });
+    document.getElementById("btnExpPrint").addEventListener("click", printExpenses);
     // Export
     document.getElementById("btnExport").addEventListener("click", () => {
         const invoices = JSON.parse(localStorage.getItem("wk_invoices") || "[]");
         const catalogue = JSON.parse(localStorage.getItem("wk_catalogue") || "null");
-        const data = { version: 1, exportedAt: new Date().toISOString(), invoices, catalogue };
+        const expenses = JSON.parse(localStorage.getItem("wk_expenses") || "[]");
+        const data = { version: 1, exportedAt: new Date().toISOString(), invoices, catalogue, expenses };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -585,7 +803,7 @@ document.addEventListener("DOMContentLoaded", () => {
         a.download = `westa-backup-${dateStr}.json`;
         a.click();
         URL.revokeObjectURL(url);
-        showAlert(`فاتورە ${invoices.length} پاشەکەوتران`, "success");
+        showAlert(`فاتورە ${invoices.length} پاشەکەوتران + خەرجی ${expenses.length}`, "success");
     });
     // Import
     document.getElementById("btnImport").addEventListener("click", () => {
@@ -611,6 +829,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (catalogue) {
                     localStorage.setItem("wk_catalogue", JSON.stringify(catalogue));
                     loadCatalogue();
+                }
+                if (Array.isArray(data.expenses) && data.expenses.length) {
+                    const existExp  = JSON.parse(localStorage.getItem("wk_expenses") || "[]");
+                    const existIds  = new Set(existExp.map(x => x.id));
+                    const newExp    = data.expenses.filter(x => !existIds.has(x.id));
+                    localStorage.setItem("wk_expenses", JSON.stringify([...existExp, ...newExp]));
                 }
                 showAlert(`بارکرا: ${newOnes.length} فاتورەی نوێ زیادکرا ، ${invoices.length - newOnes.length} یەکسان بوون`, "info");
             } catch {

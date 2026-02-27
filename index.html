@@ -39,6 +39,7 @@
       <button class="btn btn-outline-light btn-sm" id="btnNewInvoice"><i class="bi bi-plus-circle"></i> فاتورەی نوێ</button>
       <button class="btn btn-outline-warning btn-sm" id="btnCatalogue"><i class="bi bi-list-ul"></i> بابەتەکان</button>
       <button class="btn btn-outline-light btn-sm" id="btnSavedList"><i class="bi bi-archive"></i> فاتورە خەزنکراوەکان</button>
+      <button class="btn btn-outline-danger btn-sm" id="btnExpenses"><i class="bi bi-wallet2"></i> خەرجیەکان</button>
       <button class="btn btn-outline-success btn-sm" id="btnExport"><i class="bi bi-download"></i> هەناردن (Export)</button>
       <button class="btn btn-outline-info btn-sm" id="btnImport"><i class="bi bi-upload"></i> بارکردن (Import)</button>
       <input type="file" id="importFileInput" accept=".json" class="d-none" />
@@ -224,7 +225,41 @@
 </div><!-- /container-fluid -->
 
 
-<!-- ========== PRINTABLE INVOICE ========== -->
+<!-- ========== PRINTABLE EXPENSES REPORT ========== -->
+<div id="printExpenses" class="print-only" style="display:none">
+  <div class="inv-header">
+    <div class="inv-logo"><div class="logo-icon">⚡</div></div>
+    <div class="inv-title">
+      <h2>وەستا کارمەند</h2>
+      <p>ڕاپۆرتی خەرجییەکان</p>
+    </div>
+    <div class="inv-phone"><strong>مۆبایل:</strong> 07504491289</div>
+  </div>
+  <div class="inv-meta">
+    <div><span class="inv-label">بەرواری ڕاپۆرت :</span> <span class="inv-value" id="pExpReportDate"></span></div>
+    <div><span class="inv-label">فلتەر :</span> <span class="inv-value" id="pExpFilterLabel"></span></div>
+  </div>
+  <!-- Summary by category -->
+  <div id="pExpCatSummary" style="margin-bottom:12px"></div>
+  <table class="inv-table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>بەروار</th>
+        <th>جۆر</th>
+        <th>وردەکاری</th>
+        <th>بڕی پارە (د)</th>
+      </tr>
+    </thead>
+    <tbody id="pExpBody"></tbody>
+    <tfoot>
+      <tr style="font-weight:bold">
+        <td colspan="4" style="text-align:right">کۆی گشتی</td>
+        <td id="pExpTotal"></td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
 <div id="printInvoice" class="print-only">
   <div class="inv-header">
     <div class="inv-logo">
@@ -307,6 +342,133 @@
 
 <!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- ========== EXPENSES MODAL ========== -->
+<div class="modal fade" id="expensesModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header text-white" style="background:#c0392b">
+        <h5 class="modal-title"><i class="bi bi-wallet2"></i> بەڕێوبردنی خەرجییەکان</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+
+        <!-- Summary Cards -->
+        <div class="row g-2 mb-3" id="expSummaryCards"></div>
+
+        <!-- Add Form -->
+        <div class="card mb-3 border-danger">
+          <div class="card-header bg-danger-subtle fw-semibold" id="expFormTitle">
+            <i class="bi bi-plus-square text-danger"></i> زیادکردنی خەرجیی نوێ
+          </div>
+          <div class="card-body">
+            <div class="row g-2 align-items-end">
+              <div class="col-md-2">
+                <label class="form-label small fw-semibold">بەروار</label>
+                <input type="date" class="form-control" id="expDate" />
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small fw-semibold">جۆری خەرجی</label>
+                <select class="form-select" id="expCategory">
+                  <option value="مەواد">مەواد</option>
+                  <option value="کرێکاران">کرێکاران</option>
+                  <option value="ئامێر">ئامێر</option>
+                  <option value="گواستنەوە">گواستنەوە</option>
+                  <option value="کرێ">کرێ</option>
+                  <option value="خواردن">خواردن</option>
+                  <option value="تر">تر</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-semibold">وردەکاری / تێبینی</label>
+                <input type="text" class="form-control" id="expDesc" placeholder="وردەکاری..." />
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small fw-semibold">بڕی پارە (د)</label>
+                <input type="number" class="form-control" id="expAmount" min="0" step="500" placeholder="0" />
+              </div>
+              <div class="col-md-2">
+                <input type="hidden" id="expEditId" value="" />
+                <button class="btn btn-danger w-100" id="btnSaveExp">
+                  <i class="bi bi-floppy"></i> <span id="expSaveBtnText">زیادکە</span>
+                </button>
+                <button class="btn btn-secondary w-100 mt-1 d-none" id="btnCancelExp">
+                  <i class="bi bi-x"></i> هەڵوەشاندنەوە
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="card mb-3 bg-light">
+          <div class="card-body py-2">
+            <div class="row g-2 align-items-end">
+              <div class="col-md-2">
+                <label class="form-label small">لە (بەروار)</label>
+                <input type="date" class="form-control form-control-sm" id="expFilterFrom" />
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small">بۆ (بەروار)</label>
+                <input type="date" class="form-control form-control-sm" id="expFilterTo" />
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small">جۆر</label>
+                <select class="form-select form-select-sm" id="expFilterCat">
+                  <option value="">هەموو</option>
+                  <option value="مەواد">مەواد</option>
+                  <option value="کرێکاران">کرێکاران</option>
+                  <option value="ئامێر">ئامێر</option>
+                  <option value="گواستنەوە">گواستنەوە</option>
+                  <option value="کرێ">کرێ</option>
+                  <option value="خواردن">خواردن</option>
+                  <option value="تر">تر</option>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small">گەڕان</label>
+                <input type="text" class="form-control form-control-sm" id="expFilterSearch" placeholder="گەڕان لە وردەکاری..." />
+              </div>
+              <div class="col-md-3 d-flex gap-1">
+                <button class="btn btn-sm btn-outline-secondary" id="btnExpFilterClear">
+                  <i class="bi bi-x-circle"></i> پاککردنەوە
+                </button>
+                <button class="btn btn-sm btn-outline-primary" id="btnExpPrint">
+                  <i class="bi bi-printer"></i> چاپکردن
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Expense Table -->
+        <div class="table-responsive">
+          <table class="table table-bordered table-hover align-middle text-center small">
+            <thead style="background:#c0392b;color:#fff">
+              <tr>
+                <th style="width:5%">#</th>
+                <th style="width:12%">بەروار</th>
+                <th style="width:13%">جۆر</th>
+                <th>وردەکاری</th>
+                <th style="width:15%">بڕی پارە (د)</th>
+                <th style="width:10%">کردار</th>
+              </tr>
+            </thead>
+            <tbody id="expTableBody"></tbody>
+            <tfoot>
+              <tr class="fw-bold table-light">
+                <td colspan="4" class="text-end">کۆی گشتی</td>
+                <td id="expGrandTotal" class="text-danger fs-6">0</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ========== CATALOGUE MODAL ========== -->
 <div class="modal fade" id="catalogueModal" tabindex="-1" aria-labelledby="catalogueModalLabel" aria-hidden="true">
