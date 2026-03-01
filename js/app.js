@@ -418,6 +418,7 @@ function renderPrintPreview() {
     document.getElementById("pCustomerPhone").textContent =
         document.getElementById("customerPhone").value;
     document.getElementById("pPointRate").textContent = formatNum(rate);
+    document.getElementById("pRateDisplay").textContent = formatNum(rate);
     document.getElementById("pDate").textContent =
         document.getElementById("invoiceDate").value;
     document.getElementById("pNote").textContent =
