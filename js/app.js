@@ -254,6 +254,7 @@ function renderTable() {
     });
     document.getElementById("grandTotalCell").textContent = formatNum(grand);
     document.getElementById("grandTotalPtsCell").textContent = grandPts > 0 ? formatNum(grandPts) : "–";
+    document.getElementById("rateDisplayCell").innerHTML = `نرخی نوقتە : <strong>${formatNum(rate)}</strong> دینار`;
     updateRemaining(grand);
     if (previewOpen)
         renderPrintPreview();
