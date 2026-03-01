@@ -418,7 +418,7 @@ function renderPrintPreview() {
     document.getElementById("pCustomerPhone").textContent =
         document.getElementById("customerPhone").value;
     document.getElementById("pPointRate").textContent = formatNum(rate);
-    document.getElementById("pRateDisplay").textContent = `نرخی نوقتە : ${formatNum(rate)} دینار`;
+    document.getElementById("pRateDisplay").textContent = rate > 0 ? formatNum(rate) + " د" : "–";
     document.getElementById("pDate").textContent =
         document.getElementById("invoiceDate").value;
     document.getElementById("pNote").textContent =
@@ -439,6 +439,7 @@ function renderPrintPreview() {
       <td>${item.qty}</td>
       <td>${item.pointsPerUnit > 0 ? op2 + item.pointsPerUnit : "–"}</td>
       <td>${item.pointsPerUnit > 0 ? formatNum(tPts2) : "–"}</td>
+      <td style="text-align:center;">${rate > 0 ? formatNum(rate) : "–"}</td>
       <td>${formatNum(total)}</td>`;
         tbody.appendChild(tr);
     });
