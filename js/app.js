@@ -437,7 +437,6 @@ function renderPrintPreview() {
       <td>${item.qty}</td>
       <td>${item.pointsPerUnit > 0 ? op2 + item.pointsPerUnit : "–"}</td>
       <td>${item.pointsPerUnit > 0 ? formatNum(tPts2) : "–"}</td>
-      <td>${item.directPrice > 0 ? formatNum(item.directPrice) : "–"}</td>
       <td>${formatNum(total)}</td>`;
         tbody.appendChild(tr);
     });
